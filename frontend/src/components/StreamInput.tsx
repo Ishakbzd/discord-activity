@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { isM3uUrl } from '../utils/playlistParser';
 
 interface StreamInputProps {
   streamUrl: string;
   isHost: boolean;
   onSubmit: (url: string) => void;
+  onPlaylistPaste?: (url: string) => void;
 }
 
-export function StreamInput({ streamUrl, isHost, onSubmit }: StreamInputProps) {
+export function StreamInput({ streamUrl, isHost, onSubmit, onPlaylistPaste }: StreamInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -21,11 +23,17 @@ export function StreamInput({ streamUrl, isHost, onSubmit }: StreamInputProps) {
 
       e.preventDefault();
       if (inputRef.current) inputRef.current.value = url;
+
+      if (isM3uUrl(url)) {
+        onPlaylistPaste?.(url);
+        return;
+      }
+
       onSubmit(url);
       setFeedback('Stream loaded!');
       setTimeout(() => setFeedback(null), 2000);
     },
-    [onSubmit]
+    [onSubmit, onPlaylistPaste]
   );
 
   useEffect(() => {
@@ -52,7 +60,7 @@ export function StreamInput({ streamUrl, isHost, onSubmit }: StreamInputProps) {
           ref={inputRef}
           type="url"
           defaultValue={streamUrl}
-          placeholder="Paste HLS (.m3u8), MP4, or WebM URL..."
+          placeholder="Paste HLS (.m3u8), MP4, WebM, or IPTV playlist (.m3u) URL..."
           readOnly
           className="flex-1 bg-discord-card text-sm px-3 py-2 rounded border border-discord-hover cursor-pointer focus:outline-none focus:border-discord-blurple placeholder:text-discord-muted"
         />

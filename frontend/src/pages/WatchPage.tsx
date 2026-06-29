@@ -2,10 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DiscordContext } from '../discord/sdk';
 import { useDriftCorrection, useRoomSync } from '../hooks/useRoomSync';
 import { useVideoPlayer } from '../player/useVideoPlayer';
+import { ChannelPicker } from '../components/ChannelPicker';
 import { Controls } from '../components/Controls';
 import { StatusBar } from '../components/StatusBar';
 import { StreamInput } from '../components/StreamInput';
 import { UserList } from '../components/UserList';
+import { isM3uUrl, parseM3u } from '../utils/playlistParser';
+import type { PlaylistChannel } from '../utils/playlistParser';
 
 interface WatchPageProps {
   context: DiscordContext;
@@ -35,6 +38,7 @@ export function WatchPage({ context }: WatchPageProps) {
   const [localTime, setLocalTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [pasteFeedback, setPasteFeedback] = useState<string | null>(null);
+  const [playlistChannels, setPlaylistChannels] = useState<PlaylistChannel[] | null>(null);
   const playerAreaRef = useRef<HTMLDivElement>(null);
 
   const videoRef = useVideoPlayer({
@@ -65,24 +69,50 @@ export function WatchPage({ context }: WatchPageProps) {
     };
   }, [videoRef, state?.streamUrl]);
 
+  const handlePlaylistPaste = useCallback(async (url: string) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) { setPasteFeedback('Failed to load playlist'); setTimeout(() => setPasteFeedback(null), 2000); return; }
+      const text = await res.text();
+      const channels = parseM3u(text);
+      if (channels.length === 0) { setPasteFeedback('No channels found in playlist'); setTimeout(() => setPasteFeedback(null), 2000); return; }
+      setPlaylistChannels(channels);
+      setPasteFeedback(null);
+    } catch {
+      setPasteFeedback('Failed to parse playlist');
+      setTimeout(() => setPasteFeedback(null), 2000);
+    }
+  }, []);
+
+  const handleChannelSelect = useCallback((channel: PlaylistChannel) => {
+    setPlaylistChannels(null);
+    changeStream(channel.url);
+    setPasteFeedback('Stream loaded!');
+    setTimeout(() => setPasteFeedback(null), 2000);
+  }, [changeStream]);
+
   useEffect(() => {
     const area = playerAreaRef.current;
     if (!area || !isHost || state?.streamUrl) return;
 
-    const handlePaste = (e: ClipboardEvent) => {
+    const onPaste = (e: ClipboardEvent) => {
       const text = e.clipboardData?.getData('text') ?? '';
       const url = text.trim();
       if (!url.startsWith('http://') && !url.startsWith('https://')) return;
 
       e.preventDefault();
+      if (isM3uUrl(url)) {
+        handlePlaylistPaste(url);
+        return;
+      }
       changeStream(url);
       setPasteFeedback('Stream loaded!');
       setTimeout(() => setPasteFeedback(null), 2000);
     };
 
-    area.addEventListener('paste', handlePaste);
-    return () => area.removeEventListener('paste', handlePaste);
-  }, [isHost, state?.streamUrl, changeStream]);
+    area.addEventListener('paste', onPaste);
+    return () => area.removeEventListener('paste', onPaste);
+  }, [isHost, state?.streamUrl, changeStream, handlePlaylistPaste]);
 
   const handlePlay = useCallback(() => play(), [play]);
   const handlePause = useCallback(() => {
@@ -155,6 +185,7 @@ export function WatchPage({ context }: WatchPageProps) {
             streamUrl={state?.streamUrl ?? ''}
             isHost={isHost}
             onSubmit={changeStream}
+            onPlaylistPaste={handlePlaylistPaste}
           />
 
           <Controls
@@ -181,6 +212,13 @@ export function WatchPage({ context }: WatchPageProps) {
           />
         </aside>
       </main>
+      {playlistChannels && (
+        <ChannelPicker
+          channels={playlistChannels}
+          onSelect={handleChannelSelect}
+          onClose={() => setPlaylistChannels(null)}
+        />
+      )}
     </div>
   );
 }
