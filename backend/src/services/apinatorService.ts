@@ -7,7 +7,7 @@ export function getApinator(): ApinatorServer {
     const appId = process.env.APINATOR_APP_ID ?? '';
     const key = process.env.APINATOR_KEY ?? '';
     const secret = process.env.APINATOR_SECRET ?? '';
-    const cluster = process.env.APINATOR_CLUSTER ?? 'eu';
+    const cluster = process.env.APINATOR_CLUSTER ?? 'us';
 
     if (!appId || !key || !secret) {
       throw new Error('APINATOR_APP_ID, APINATOR_KEY, and APINATOR_SECRET must be set');

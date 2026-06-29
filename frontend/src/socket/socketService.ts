@@ -53,7 +53,7 @@ class RoomService {
     this.disconnectApinator();
 
     const appKey = import.meta.env.VITE_APINATOR_KEY;
-    const cluster = import.meta.env.VITE_APINATOR_CLUSTER ?? 'eu';
+    const cluster = import.meta.env.VITE_APINATOR_CLUSTER ?? 'us';
     if (!appKey) return;
 
     this.client = new Apinator({ appKey, cluster });
