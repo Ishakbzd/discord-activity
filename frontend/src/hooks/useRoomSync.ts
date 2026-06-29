@@ -21,6 +21,7 @@ interface UseRoomSyncReturn {
   seek: (time: number) => void;
   changeStream: (url: string) => void;
   changePlaybackRate: (rate: number) => void;
+  changeBrowse: (url: string) => void;
   transferHost: (userId: string) => void;
 }
 
@@ -99,6 +100,10 @@ export function useRoomSync(options: UseRoomSyncOptions): UseRoomSyncReturn {
     ),
     changePlaybackRate: useCallback(
       (rate: number) => roomService.changePlaybackRate(channelId, userId, rate),
+      [channelId, userId]
+    ),
+    changeBrowse: useCallback(
+      (url: string) => roomService.changeBrowse(channelId, userId, url),
       [channelId, userId]
     ),
     transferHost: useCallback(

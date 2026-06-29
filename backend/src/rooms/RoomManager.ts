@@ -9,6 +9,7 @@ interface Room {
 function createDefaultState(hostId: string): RoomState {
   return {
     streamUrl: '',
+    browseUrl: '',
     playing: false,
     currentTime: 0,
     playbackRate: 1,

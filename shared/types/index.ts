@@ -1,5 +1,6 @@
 export interface RoomState {
   streamUrl: string;
+  browseUrl: string;
   playing: boolean;
   currentTime: number;
   playbackRate: number;

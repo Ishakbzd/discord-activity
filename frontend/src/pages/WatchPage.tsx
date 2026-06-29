@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DiscordContext } from '../discord/sdk';
 import { useDriftCorrection, useRoomSync } from '../hooks/useRoomSync';
 import { useVideoPlayer } from '../player/useVideoPlayer';
+import { BrowsePanel } from '../components/BrowsePanel';
 import { ChannelPicker } from '../components/ChannelPicker';
 import { Controls } from '../components/Controls';
 import { StatusBar } from '../components/StatusBar';
@@ -27,6 +28,7 @@ export function WatchPage({ context }: WatchPageProps) {
     seek,
     changeStream,
     changePlaybackRate,
+    changeBrowse,
     transferHost,
   } = useRoomSync({
     channelId,
@@ -39,6 +41,7 @@ export function WatchPage({ context }: WatchPageProps) {
   const [duration, setDuration] = useState(0);
   const [pasteFeedback, setPasteFeedback] = useState<string | null>(null);
   const [playlistChannels, setPlaylistChannels] = useState<PlaylistChannel[] | null>(null);
+  const [mode, setMode] = useState<'watch' | 'browse'>('watch');
   const playerAreaRef = useRef<HTMLDivElement>(null);
 
   const videoRef = useVideoPlayer({
@@ -144,8 +147,29 @@ export function WatchPage({ context }: WatchPageProps) {
 
       <StatusBar connected={connected} isHost={isHost} error={error} />
 
+      <div className="flex items-center gap-2 px-4 pt-2">
+        <button
+          onClick={() => setMode('watch')}
+          className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+            mode === 'watch' ? 'bg-discord-blurple text-white' : 'bg-discord-card text-discord-muted hover:text-discord-text'
+          }`}
+        >
+          Watch
+        </button>
+        <button
+          onClick={() => setMode('browse')}
+          className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+            mode === 'browse' ? 'bg-discord-blurple text-white' : 'bg-discord-card text-discord-muted hover:text-discord-text'
+          }`}
+        >
+          Browse
+        </button>
+      </div>
+
       <main className="flex-1 flex flex-col lg:flex-row gap-4 p-4 max-w-7xl mx-auto w-full">
         <div className="flex-1 flex flex-col gap-3 min-w-0">
+          {mode === 'watch' ? (
+            <>
           <div
             ref={playerAreaRef}
             className="relative aspect-video bg-black rounded-lg overflow-hidden"
@@ -200,6 +224,14 @@ export function WatchPage({ context }: WatchPageProps) {
             onSeek={handleSeek}
             onRateChange={changePlaybackRate}
           />
+            </>
+          ) : (
+            <BrowsePanel
+              currentUrl={state?.browseUrl ?? ''}
+              isHost={isHost}
+              onChangeUrl={changeBrowse}
+            />
+          )}
         </div>
 
         <aside className="lg:w-64 shrink-0 bg-discord-sidebar rounded-lg p-3">

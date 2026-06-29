@@ -169,6 +169,10 @@ class RoomService {
     await this.sendAction('change-playback-rate', { channelId, userId, playbackRate });
   }
 
+  async changeBrowse(channelId: string, userId: string, browseUrl: string): Promise<void> {
+    await this.sendAction('change-browse', { channelId, userId, browseUrl });
+  }
+
   async transferHost(channelId: string, userId: string, newHostId: string): Promise<void> {
     await this.sendAction('transfer-host', { channelId, userId, newHostId });
   }

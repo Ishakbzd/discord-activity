@@ -262,6 +262,48 @@ export function registerRoomRoutes(router: Router): void {
     }
   });
 
+  router.post('/api/rooms/change-browse', (req: Request, res: Response) => {
+    try {
+      if (!checkRateLimit(getClientIp(req))) {
+        res.status(429).json({ error: 'Rate limit exceeded' });
+        return;
+      }
+
+      const { channelId, userId, browseUrl } = req.body ?? {};
+      const cleanChannelId = sanitizeString(channelId ?? '');
+      const cleanUserId = sanitizeString(userId ?? '');
+      const cleanUrl = sanitizeString(browseUrl ?? '', 2048);
+
+      if (!cleanChannelId || !cleanUserId) {
+        res.status(400).json({ error: 'Invalid payload' });
+        return;
+      }
+
+      if (!requireHost(cleanChannelId, cleanUserId, res)) return;
+
+      if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+        res.status(400).json({ error: 'Invalid browse URL' });
+        return;
+      }
+
+      const state = roomManager.updateState(cleanChannelId, { browseUrl: cleanUrl });
+      if (state) {
+        getApinator()
+          .trigger({
+            name: 'room-updated',
+            data: JSON.stringify({ state }),
+            channel: getChannelName(cleanChannelId),
+          })
+          .catch(() => {});
+        res.json({ state });
+      } else {
+        res.status(404).json({ error: 'Room not found' });
+      }
+    } catch {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   router.post('/api/rooms/change-playback-rate', (req: Request, res: Response) => {
     try {
       if (!checkRateLimit(getClientIp(req))) {
