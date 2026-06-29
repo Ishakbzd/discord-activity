@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RoomState, RoomUser } from '@shared';
 import { DRIFT_THRESHOLD_MS } from '@shared';
-import { socketService } from '../socket/socketService';
+import { roomService } from '../socket/socketService';
 
 interface UseRoomSyncOptions {
   channelId: string;
@@ -34,57 +34,46 @@ export function useRoomSync(options: UseRoomSyncOptions): UseRoomSyncReturn {
   const joinedRef = useRef(false);
 
   useEffect(() => {
-    const socket = socketService.connect();
-
-    const onConnect = () => {
-      setConnected(true);
-      if (!joinedRef.current) {
-        socketService.joinRoom({ channelId, userId, username, avatar });
-        joinedRef.current = true;
-      }
-    };
-
-    const onDisconnect = () => setConnected(false);
-
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-
-    if (socket.connected) onConnect();
+    if (joinedRef.current) return;
+    joinedRef.current = true;
 
     const cleanups = [
-      socketService.onSyncState(({ state: s, users: u, isHost: h }) => {
-        setState(s);
-        setUsers(u);
-        setIsHost(h);
-        setError(null);
-      }),
-      socketService.onRoomUpdated(({ state: s }) => {
+      roomService.onRoomUpdated(({ state: s }) => {
         setState(s);
       }),
-      socketService.onUserJoined(({ user }) => {
+      roomService.onUserJoined(({ user }) => {
         setUsers((prev) => {
           if (prev.some((u) => u.id === user.id)) return prev;
           return [...prev, user];
         });
       }),
-      socketService.onUserLeft(({ userId: leftId }) => {
+      roomService.onUserLeft(({ userId: leftId }) => {
         setUsers((prev) => prev.filter((u) => u.id !== leftId));
       }),
-      socketService.onHostChanged(({ hostId }) => {
+      roomService.onHostChanged(({ hostId }) => {
         setIsHost(hostId === userId);
         setState((prev) => (prev ? { ...prev, hostId } : prev));
       }),
-      socketService.onError(({ message }) => setError(message)),
+      roomService.onError(({ message }) => setError(message)),
     ];
 
-    const pingInterval = setInterval(() => socketService.ping(), 30000);
+    roomService
+      .join({ channelId, userId, username, avatar })
+      .then((data) => {
+        setState(data.state);
+        setUsers(data.users);
+        setIsHost(data.isHost);
+        setConnected(true);
+        setError(null);
+      })
+      .catch((err: Error) => {
+        setError(err.message);
+        setConnected(false);
+      });
 
     return () => {
-      socket.off('connect', onConnect);
-      socket.off('disconnect', onDisconnect);
       cleanups.forEach((fn) => fn());
-      clearInterval(pingInterval);
-      socketService.leaveRoom();
+      roomService.leave(channelId, userId);
       joinedRef.current = false;
     };
   }, [channelId, userId, username, avatar]);
@@ -95,17 +84,26 @@ export function useRoomSync(options: UseRoomSyncOptions): UseRoomSyncReturn {
     isHost,
     connected,
     error,
-    play: useCallback(() => socketService.play(), []),
-    pause: useCallback((t?: number) => socketService.pause(t), []),
-    seek: useCallback((t: number) => socketService.seek(t), []),
-    changeStream: useCallback((url: string) => socketService.changeStream(url), []),
+    play: useCallback(() => roomService.play(channelId, userId), [channelId, userId]),
+    pause: useCallback(
+      (t?: number) => roomService.pause(channelId, userId, t),
+      [channelId, userId]
+    ),
+    seek: useCallback(
+      (t: number) => roomService.seek(channelId, userId, t),
+      [channelId, userId]
+    ),
+    changeStream: useCallback(
+      (url: string) => roomService.changeStream(channelId, userId, url),
+      [channelId, userId]
+    ),
     changePlaybackRate: useCallback(
-      (rate: number) => socketService.changePlaybackRate(rate),
-      []
+      (rate: number) => roomService.changePlaybackRate(channelId, userId, rate),
+      [channelId, userId]
     ),
     transferHost: useCallback(
-      (id: string) => socketService.transferHost(id),
-      []
+      (id: string) => roomService.transferHost(channelId, userId, id),
+      [channelId, userId]
     ),
   };
 }

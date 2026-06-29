@@ -4,7 +4,6 @@ interface Room {
   channelId: string;
   state: RoomState;
   users: Map<string, RoomUser>;
-  socketToUser: Map<string, string>;
 }
 
 function createDefaultState(hostId: string): RoomState {
@@ -21,11 +20,7 @@ function createDefaultState(hostId: string): RoomState {
 export class RoomManager {
   private rooms = new Map<string, Room>();
 
-  join(
-    channelId: string,
-    socketId: string,
-    user: RoomUser
-  ): { room: Room; isNewHost: boolean } {
+  join(channelId: string, user: RoomUser): { room: Room; isNewHost: boolean } {
     let room = this.rooms.get(channelId);
 
     if (!room) {
@@ -33,13 +28,11 @@ export class RoomManager {
         channelId,
         state: createDefaultState(user.id),
         users: new Map(),
-        socketToUser: new Map(),
       };
       this.rooms.set(channelId, room);
     }
 
     room.users.set(user.id, user);
-    room.socketToUser.set(socketId, user.id);
 
     const isNewHost = !room.state.hostId || !room.users.has(room.state.hostId);
     if (isNewHost) {
@@ -49,7 +42,7 @@ export class RoomManager {
     return { room, isNewHost };
   }
 
-  leave(channelId: string, socketId: string): {
+  leave(channelId: string, userId: string): {
     room: Room | null;
     userId: string | null;
     newHostId: string | null;
@@ -60,12 +53,10 @@ export class RoomManager {
       return { room: null, userId: null, newHostId: null, roomDeleted: false };
     }
 
-    const userId = room.socketToUser.get(socketId) ?? null;
-    if (!userId) {
+    if (!room.users.has(userId)) {
       return { room, userId: null, newHostId: null, roomDeleted: false };
     }
 
-    room.socketToUser.delete(socketId);
     room.users.delete(userId);
 
     let newHostId: string | null = null;
@@ -87,10 +78,6 @@ export class RoomManager {
 
   getRoom(channelId: string): Room | undefined {
     return this.rooms.get(channelId);
-  }
-
-  getUserId(channelId: string, socketId: string): string | null {
-    return this.rooms.get(channelId)?.socketToUser.get(socketId) ?? null;
   }
 
   isHost(channelId: string, userId: string): boolean {
