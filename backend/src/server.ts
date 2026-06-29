@@ -29,6 +29,37 @@ app.get('/health', (_req, res) => {
 
 registerRoomRoutes(app);
 
+app.get('/api/proxy', async (req, res) => {
+  const targetUrl = (req.query.url as string) ?? '';
+  if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+    res.status(400).send('Invalid URL');
+    return;
+  }
+
+  try {
+    const response = await fetch(targetUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+      redirect: 'follow',
+    });
+
+    const contentType = response.headers.get('content-type') ?? '';
+
+    if (contentType.includes('text/html')) {
+      let html = await response.text();
+      const baseTag = `<base href="${targetUrl.replace(/\/[^/]*$/, '/')}">`;
+      html = html.replace('<head>', `<head>${baseTag}`);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(html);
+    } else {
+      const buffer = Buffer.from(await response.arrayBuffer());
+      res.setHeader('Content-Type', contentType);
+      res.send(buffer);
+    }
+  } catch {
+    res.status(502).send('Failed to fetch URL');
+  }
+});
+
 const frontendDist =
   process.env.FRONTEND_DIST_PATH ?? path.resolve(process.cwd(), 'public');
 if (isProduction) {

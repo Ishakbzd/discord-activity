@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
+
+function proxyUrl(target: string): string {
+  return `${API_BASE}/api/proxy?url=${encodeURIComponent(target)}`;
+}
+
 interface BrowsePanelProps {
   currentUrl: string;
   isHost: boolean;
@@ -80,9 +86,9 @@ export function BrowsePanel({ currentUrl, isHost, onChangeUrl }: BrowsePanelProp
         <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
           {currentUrl.startsWith('https://') || currentUrl.startsWith('http://') ? (
             <iframe
-              src={currentUrl}
+              src={proxyUrl(currentUrl)}
               className="w-full h-full border-0"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"
               title="Browser"
             />
           ) : (
