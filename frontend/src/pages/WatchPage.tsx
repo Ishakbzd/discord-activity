@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DiscordContext } from '../discord/sdk';
 import { useDriftCorrection, useRoomSync } from '../hooks/useRoomSync';
 import { useVideoPlayer } from '../player/useVideoPlayer';
@@ -34,6 +34,8 @@ export function WatchPage({ context }: WatchPageProps) {
 
   const [localTime, setLocalTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [pasteFeedback, setPasteFeedback] = useState<string | null>(null);
+  const playerAreaRef = useRef<HTMLDivElement>(null);
 
   const videoRef = useVideoPlayer({
     state,
@@ -62,6 +64,25 @@ export function WatchPage({ context }: WatchPageProps) {
       video.removeEventListener('durationchange', updateDuration);
     };
   }, [videoRef, state?.streamUrl]);
+
+  useEffect(() => {
+    const area = playerAreaRef.current;
+    if (!area || !isHost || state?.streamUrl) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const text = e.clipboardData?.getData('text') ?? '';
+      const url = text.trim();
+      if (!url.startsWith('http://') && !url.startsWith('https://')) return;
+
+      e.preventDefault();
+      changeStream(url);
+      setPasteFeedback('Stream loaded!');
+      setTimeout(() => setPasteFeedback(null), 2000);
+    };
+
+    area.addEventListener('paste', handlePaste);
+    return () => area.removeEventListener('paste', handlePaste);
+  }, [isHost, state?.streamUrl, changeStream]);
 
   const handlePlay = useCallback(() => play(), [play]);
   const handlePause = useCallback(() => {
@@ -95,7 +116,11 @@ export function WatchPage({ context }: WatchPageProps) {
 
       <main className="flex-1 flex flex-col lg:flex-row gap-4 p-4 max-w-7xl mx-auto w-full">
         <div className="flex-1 flex flex-col gap-3 min-w-0">
-          <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+          <div
+            ref={playerAreaRef}
+            className="relative aspect-video bg-black rounded-lg overflow-hidden"
+            tabIndex={isHost && !state?.streamUrl ? 0 : undefined}
+          >
             {state?.streamUrl ? (
               <video
                 ref={videoRef}
@@ -104,12 +129,24 @@ export function WatchPage({ context }: WatchPageProps) {
                 crossOrigin="anonymous"
               />
             ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-discord-muted gap-2">
-                <svg className="w-16 h-16 opacity-40" fill="currentColor" viewBox="0 0 24 24">
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-discord-muted gap-3 px-4">
+                <svg className="w-20 h-20 opacity-30" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M18 3a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h12zm-8.5 3.5l-1 5.5 5.5-1-5.5-4.5z" />
                 </svg>
-                <p className="text-sm">No stream loaded</p>
-                {isHost && <p className="text-xs">Paste a stream URL below to get started</p>}
+                <p className="text-base font-medium">No stream loaded</p>
+                {isHost ? (
+                  <div className="flex flex-col items-center gap-1">
+                    <p className="text-sm text-discord-text/60">Paste a stream URL to start watching</p>
+                    <p className="text-xs text-discord-muted">Ctrl+V anywhere on this area</p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-discord-muted">Waiting for the host to load a stream...</p>
+                )}
+                {pasteFeedback && (
+                  <span className="text-sm text-discord-green font-medium animate-pulse">
+                    {pasteFeedback}
+                  </span>
+                )}
               </div>
             )}
           </div>
