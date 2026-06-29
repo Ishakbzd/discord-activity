@@ -1,0 +1,9 @@
+{
+  "name": "@watchtogether/shared",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    "./types": "./types/index.ts",
+    "./types/index": "./types/index.ts"
+  }
+}
